@@ -12,16 +12,48 @@ Outil de recherche rapide dans des archives locales de messages Thunderbird. Le 
 - Les appels à des services LLM externes doivent être **réduits au strict nécessaire**.
 - Compatible avec des archives **Thunderbird** stockées localement.
 
+## Fonctionnalités actuelles
+
+Le dépôt contient désormais un premier prototype 100% local permettant :
+
+- **Indexation** d'un fichier `mbox` Thunderbird vers une base SQLite embarquée avec un index FTS5.
+- **Recherche plein texte** via un moteur simple qui retourne des extraits contextualisés.
+- **Consultation** du contenu complet d'un message précédemment indexé.
+
+## Utilisation rapide
+
+### Pré-requis
+
+Le projet n'a pas de dépendances externes : Python 3.11+ suffit.
+
+### Indexer un fichier mbox
+
+```bash
+python -m mail_search index --db path/vers/index.db path/vers/archive.mbox
+```
+
+### Lancer une recherche
+
+```bash
+python -m mail_search search --db path/vers/index.db "search"
+```
+
+### Afficher un message
+
+```bash
+python -m mail_search show --db path/vers/index.db "<message-id>"
+```
+
 ## Pistes techniques
 1. **Indexation locale**
-   - Utiliser un moteur d'indexation (ex. `whoosh`, `tantivy` ou `lunr`) pour les recherches par mots-clés.
+   - Le prototype actuel utilise SQLite + FTS5. Une évolution possible serait d'évaluer `tantivy` ou `meilisearch` pour plus de performance.
    - Mettre en place un pipeline d'ingestion des fichiers mbox ou maildir fournis par Thunderbird.
 2. **Recherche sémantique**
    - Générer des embeddings localement via des modèles légers (ex. `sentence-transformers` avec backend `onnx` ou `ggml`).
    - Stocker les vecteurs dans une base de données vectorielle locale (ex. `faiss`, `qdrant` en mode self-hosted`).
    - N'utiliser un LLM externe que pour des tâches impossibles à réaliser localement.
 3. **Interface utilisateur**
-   - Proposer une interface CLI pour débuter.
+   - Proposer une interface CLI pour débuter (implémentée dans le prototype).
    - Évoluer vers une interface web légère (ex. `FastAPI` + `Svelte` ou `React`) si nécessaire.
 
 ## Plan de travail suggéré
