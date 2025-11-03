@@ -13,6 +13,7 @@ import hashlib
 import mailbox
 
 from .database import MailDatabase, StoredMessage
+from .semantic import EmbeddingBackend, load_default_backend
 
 
 @dataclass
@@ -26,8 +27,13 @@ class IndexResult:
 class MailIndexer:
     """High level helper used to parse Thunderbird archives."""
 
-    def __init__(self, database: MailDatabase):
+    def __init__(
+        self,
+        database: MailDatabase,
+        embedder: Optional[EmbeddingBackend] = None,
+    ):
         self.database = database
+        self.embedder = embedder
 
     # -- public API ---------------------------------------------------------
     def index_mbox(self, mbox_path: Path | str) -> IndexResult:
@@ -36,6 +42,19 @@ class MailIndexer:
         path = Path(mbox_path)
         messages = list(self._read_mbox(path))
         inserted = self.database.upsert_many(messages)
+        if self.embedder is None:
+            self.embedder = load_default_backend()
+        if self.embedder is not None and messages:
+            payloads = [
+                (message.message_id, self._embedding_text(message))
+                for message in messages
+            ]
+            vectors = self.embedder.embed([text for _, text in payloads])
+            serialisable = [
+                (message_id, vector)
+                for (message_id, _), vector in zip(payloads, vectors)
+            ]
+            self.database.store_embeddings(self.embedder.identifier, serialisable)
         return IndexResult(processed=len(messages), inserted=inserted)
 
     # -- parsing helpers ----------------------------------------------------
@@ -66,6 +85,11 @@ class MailIndexer:
             to_addr=to_addr,
             date=date,
         )
+
+    def _embedding_text(self, message: StoredMessage) -> str:
+        subject = message.subject or ""
+        body = message.body or ""
+        return f"{subject}\n\n{body}".strip()
 
 
 # -- helper utilities -------------------------------------------------------

@@ -17,6 +17,7 @@ Outil de recherche rapide dans des archives locales de messages Thunderbird. Le 
 Le dépôt contient désormais un premier prototype 100% local permettant :
 
 - **Indexation** d'un fichier `mbox` Thunderbird vers une base SQLite embarquée avec un index FTS5.
+- **Génération d'embeddings locaux** (hashing déterministe par défaut, modèles `sentence-transformers` optionnels) pour une recherche sémantique.
 - **Recherche plein texte** via un moteur simple qui retourne des extraits contextualisés.
 - **Consultation** du contenu complet d'un message précédemment indexé.
 
@@ -24,7 +25,7 @@ Le dépôt contient désormais un premier prototype 100% local permettant :
 
 ### Pré-requis
 
-Le projet n'a pas de dépendances externes : Python 3.11+ suffit.
+Le projet n'a pas de dépendances obligatoires au-delà de Python 3.11+. Pour activer des modèles d'embeddings plus riches, installez en option `sentence-transformers` et placez le modèle choisi sur la machine (mode offline supporté).
 
 ### Indexer un fichier mbox
 
@@ -32,11 +33,22 @@ Le projet n'a pas de dépendances externes : Python 3.11+ suffit.
 python -m mail_search index --db path/vers/index.db path/vers/archive.mbox
 ```
 
+Options utiles :
+
+- `--no-embeddings` : désactive la génération d'embeddings (index lexical seul).
+- `--embedding-backend hash:512` : force un backend spécifique (`hash:<dimension>` ou nom de modèle `sentence-transformers`).
+
 ### Lancer une recherche
 
 ```bash
 python -m mail_search search --db path/vers/index.db "search"
 ```
+
+Options :
+
+- `--mode semantic` : interroge uniquement l'index vectoriel (similitude cosinus).
+- `--mode hybrid` : combine les scores lexicaux (BM25) et vectoriels.
+- `--embedding-backend` : choisit le backend à utiliser lors de la requête sémantique.
 
 ### Afficher un message
 

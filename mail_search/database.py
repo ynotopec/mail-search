@@ -15,6 +15,14 @@ from pathlib import Path
 from typing import Iterable, Iterator, Optional
 import sqlite3
 
+from .semantic import (
+    EmbeddingBackend,
+    body_preview,
+    cosine_similarity,
+    deserialise_vector,
+    serialise_vector,
+)
+
 
 @dataclass
 class StoredMessage:
@@ -77,6 +85,15 @@ class MailDatabase:
                     subject,
                     body,
                     tokenize='porter'
+                )
+                """
+            )
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS message_vectors (
+                    message_id TEXT PRIMARY KEY,
+                    backend TEXT NOT NULL,
+                    embedding BLOB NOT NULL
                 )
                 """
             )
@@ -157,6 +174,82 @@ class MailDatabase:
                 )
                 count += 1
         return count
+
+    # -- embedding operations ----------------------------------------------
+    def store_embeddings(
+        self,
+        backend: str,
+        embeddings: Iterable[tuple[str, list[float]]],
+    ) -> None:
+        """Persist embeddings associated with messages."""
+
+        with self.transaction() as conn:
+            for message_id, vector in embeddings:
+                payload = serialise_vector(vector)
+                conn.execute(
+                    """
+                    INSERT INTO message_vectors(message_id, backend, embedding)
+                    VALUES (?, ?, ?)
+                    ON CONFLICT(message_id) DO UPDATE SET
+                        backend=excluded.backend,
+                        embedding=excluded.embedding
+                    """,
+                    (message_id, backend, payload),
+                )
+
+    def get_vector_backends(self) -> set[str]:
+        cursor = self._conn.execute(
+            "SELECT DISTINCT backend FROM message_vectors"
+        )
+        return {row[0] for row in cursor}
+
+    def semantic_search(
+        self,
+        query: str,
+        embedder: EmbeddingBackend,
+        limit: int = 20,
+    ) -> list[dict[str, object]]:
+        """Return semantic search matches ordered by cosine similarity."""
+
+        query_vectors = embedder.embed([query])
+        if not query_vectors or all(component == 0.0 for component in query_vectors[0]):
+            return []
+        query_vector = query_vectors[0]
+
+        cursor = self._conn.execute(
+            """
+            SELECT mv.message_id, mv.embedding, m.subject, m.from_addr,
+                   m.to_addr, m.date, m.body
+            FROM message_vectors AS mv
+            JOIN messages AS m USING(message_id)
+            WHERE mv.backend = ?
+            """,
+            (embedder.identifier,),
+        )
+
+        scored: list[tuple[float, sqlite3.Row]] = []
+        for row in cursor:
+            vector = deserialise_vector(row["embedding"])
+            score = cosine_similarity(query_vector, vector)
+            if score <= 0.0:
+                continue
+            scored.append((score, row))
+
+        scored.sort(key=lambda item: item[0], reverse=True)
+        results: list[dict[str, object]] = []
+        for score, row in scored[:limit]:
+            results.append(
+                {
+                    "message_id": row["message_id"],
+                    "subject": row["subject"],
+                    "from_addr": row["from_addr"],
+                    "to_addr": row["to_addr"],
+                    "date": row["date"],
+                    "snippet": body_preview(row["body"] or ""),
+                    "score": score,
+                }
+            )
+        return results
 
     # -- query operations ---------------------------------------------------
     def search(self, query: str, limit: int = 20) -> Iterator[sqlite3.Row]:
