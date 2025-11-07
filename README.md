@@ -75,6 +75,52 @@ python -m mail_search show --db path/vers/index.db "<message-id>"
 4. **Interface** : fournir un MVP CLI permettant de lancer des requêtes et d'afficher les résultats.
 5. **Optimisation** : surveiller la latence, la consommation mémoire et la précision des résultats.
 
+## Diagramme d'architecture
+
+```mermaid
+flowchart TD
+    subgraph Source
+        A[Archives Thunderbird<br/>(mbox/maildir)]
+    end
+
+    subgraph Ingestion
+        B[Parser & normalisation]
+        C[Indexation SQLite FTS5]
+        D[Génération d'embeddings]
+    end
+
+    subgraph Stockage
+        E[(Base SQLite<br/>+ index FTS5)]
+        F[(Stockage vectoriel<br/>local)]
+    end
+
+    subgraph Recherche
+        G[Requête utilisateur]
+        H[Moteur plein texte]
+        I[Recherche sémantique]
+        J[Combinaison des scores]
+    end
+
+    subgraph Restitution
+        K[Résultats contextualisés]
+        L[Affichage du message complet]
+    end
+
+    A --> B
+    B --> C
+    B --> D
+    C --> E
+    D --> F
+    G --> H
+    G --> I
+    H --> J
+    I --> J
+    J --> K
+    K --> L
+    E -. données -.-> H
+    F -. embeddings -.-> I
+```
+
 ## Ressources complémentaires
 - [Thunderbird: Exporting emails](https://support.mozilla.org/fr/kb/exporter-sauvegarder-messages) pour obtenir les fichiers d'archives.
 - [Sentence Transformers](https://www.sbert.net/) pour les modèles d'embeddings.
