@@ -80,18 +80,18 @@ python -m mail_search show --db path/vers/index.db "<message-id>"
 ```mermaid
 flowchart TD
     subgraph Source
-        A[Archives Thunderbird<br/>(mbox/maildir)]
+        A["Archives Thunderbird<br/>(mbox/maildir)"]
     end
 
     subgraph Ingestion
         B[Parser & normalisation]
-        C[Indexation SQLite FTS5]
-        D[Génération d'embeddings]
+        C["Indexation SQLite FTS5"]
+        D["Génération d'embeddings"]
     end
 
     subgraph Stockage
-        E[(Base SQLite<br/>+ index FTS5)]
-        F[(Stockage vectoriel<br/>local)]
+        E["Base SQLite<br/>+ index FTS5"]
+        F["Stockage vectoriel<br/>local"]
     end
 
     subgraph Recherche
