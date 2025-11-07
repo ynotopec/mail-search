@@ -58,15 +58,15 @@ python -m mail_search show --db path/vers/index.db "<message-id>"
 
 ## Pistes techniques
 1. **Indexation locale**
-   - Le prototype actuel utilise SQLite + FTS5. Une évolution possible serait d'évaluer `tantivy` ou `meilisearch` pour plus de performance.
-   - Mettre en place un pipeline d'ingestion des fichiers mbox ou maildir fournis par Thunderbird.
+   - Le prototype actuel repose sur SQLite + FTS5 via le module `mail_search.database`. Les métadonnées et le corps des messages sont stockés dans des tables classiques et l'index plein texte est maintenu automatiquement lors de l'ingestion.
+   - L'ingestion (`mail_search.indexer.MailIndexer`) lit aujourd'hui les archives Thunderbird au format `mbox`. Le support de `maildir` reste une piste d'évolution prioritaire.
 2. **Recherche sémantique**
-   - Générer des embeddings localement via des modèles légers (ex. `sentence-transformers` avec backend `onnx` ou `ggml`).
-   - Stocker les vecteurs dans une base de données vectorielle locale (ex. `faiss`, `qdrant` en mode self-hosted`).
-   - N'utiliser un LLM externe que pour des tâches impossibles à réaliser localement.
+   - Les embeddings sont générés localement : par défaut le projet tente de charger `sentence-transformers/all-MiniLM-L6-v2`, puis rétrograde vers un backend de hachage déterministe (`mail_search.semantic.HashEmbeddingBackend`).
+   - Les vecteurs sont conservés dans la table `message_vectors` de SQLite et la similarité cosinus est calculée en Python (`mail_search.database.MailDatabase.semantic_search`). Une migration vers un moteur vectoriel spécialisé (ex. `faiss`, `qdrant`) pourra être étudiée si les jeux de données deviennent volumineux.
+   - Aucun appel LLM externe n'est effectué tant qu'un backend local est disponible, ce qui garantit un fonctionnement hors ligne.
 3. **Interface utilisateur**
-   - Proposer une interface CLI pour débuter (implémentée dans le prototype).
-   - Évoluer vers une interface web légère (ex. `FastAPI` + `Svelte` ou `React`) si nécessaire.
+   - L'interface CLI (`mail_search.cli`) couvre les besoins de base : indexation (`index`), recherche (`search` en modes lexical, sémantique ou hybride) et affichage (`show`).
+   - Une interface web légère (ex. `FastAPI` + `Svelte` ou `React`) pourra compléter la CLI si une interaction plus riche devient nécessaire.
 
 ## Plan de travail suggéré
 1. **Analyse des archives** : identifier la structure des dossiers Thunderbird à traiter.
