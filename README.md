@@ -127,4 +127,4 @@ flowchart TD
 - [FAISS](https://github.com/facebookresearch/faiss) ou [Qdrant](https://qdrant.tech/) pour la recherche vectorielle.
 
 ## Licence
-À définir selon les besoins du projet.
+Ce projet est sous licence MIT. Voir [LICENSE](LICENSE).
